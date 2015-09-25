@@ -33,10 +33,58 @@ static constexpr int partH = 15;
 struct ImagePart {
     int x = 0;
     int y = 0;
+    int w = partW;
+    int h = partH;
     QVector<QVector<QRgb>> data;
+    QVector<QVector<bool>> mask;
+
+    ImagePart() {
+        mask.resize(partH);
+
+        for (QVector<bool>& v : mask) {
+            v.resize(partW);
+            v.fill(true);
+        }
+    }
+
+    ImagePart united(const ImagePart &other) const{
+        ImagePart p;
+        QRect united = QRect(x,y,w,h).united(QRect(other.x, other.y, other.w, other.h));
+
+        p.x = united.x();
+        p.y = united.y();
+        p.w = united.width();
+        p.h = united.height();
+
+        p.data.resize(p.h);
+        p.mask.resize(p.h);
+
+        for (QVector<bool> &v : p.mask) {
+            v.resize(p.w);
+            v.fill(true);
+        }
+        for (QVector<QRgb> &v: p.data) {
+            v.resize(p.w);
+        }
+
+        for (int x = p.x; x < p.x + p.w; x++) {
+            for (int y = p.y; y < p.y + p.h; y++) {
+                if (y >= this->y && y < this->y + this->h && x >= this->x && x < this->x + this->w) {
+                    p.data[y-p.y][x-p.x] = this->data[y-this->y][x-this->x];
+                } else if (y >= other.y && y < other.y + other.h && x >= other.x && x < other.x + other.w) {
+                    p.data[y-p.y][x-p.x] = other.data[y-other.y][x-other.x];
+                } else {
+                    p.mask[y-p.y][x-p.x] = false;
+                }
+            }
+        }
+
+        return p;
+    }
 };
 
 int neuralimage(const QList<ImagePart> & parts, QList<QSet<int>> &results);
+int neuralimage0(const QList<ImagePart> & __parts, QList<ImagePart> &results);
 
 void imageBenchmark()
 {
@@ -83,27 +131,45 @@ void imageBenchmark()
     std::shuffle(parts.begin(), parts.end(), randg());
 
     auto stuffPart = [](const ImagePart &p, QImage &image) {
-        for (int i = 0; i < partH; i++) {
-            for (int j = 0; j < partW; j++) {
-                image.setPixel(p.x+j, p.y+i, p.data[i][j]);
+        for (int i = 0; i < p.h; i++) {
+            for (int j = 0; j < p.w; j++) {
+                if (p.mask[i][j]) {
+                    image.setPixel(p.x+j, p.y+i, p.data[i][j]);
+                }
             }
         }
     };
 
-    QList<QSet<int>> results;
-    cout << neuralimage(parts, results) << endl;
+//    QList<QSet<int>> results;
+//    cout << neuralimage(parts, results) << endl;
+
+//    for (int x = 0; x < results.length(); x++) {
+//        auto set = results[x];
+//        QImage test(image_width, image_height, QImage::Format_ARGB32);
+//        test.fill(qRgba(0,0,0,255));
+
+//        for (int i : set) {
+//            stuffPart(parts[i], test);
+//        }
+
+//        test.save("test" + QString::number(x) + ".png");
+//    }
+
+    qDebug() << "Starting benchmark" << endl;
+
+    QList<ImagePart> results;
+    cout << neuralimage0(parts, results) << endl;
 
     for (int x = 0; x < results.length(); x++) {
-        auto set = results[x];
+        auto part = results[x];
         QImage test(image_width, image_height, QImage::Format_ARGB32);
         test.fill(qRgba(0,0,0,255));
 
-        for (int i : set) {
-            stuffPart(parts[i], test);
-        }
+        stuffPart(part, test);
 
         test.save("test" + QString::number(x) + ".png");
     }
+
 
     //qDebug() << results;
 }
@@ -111,21 +177,116 @@ void imageBenchmark()
 template int correl<>(const ImagePart &p1, const ImagePart &p2);
 
 int correl(const ImagePart &p1, const ImagePart &p2){
-    QRect intersection = QRect(p1.x, p1.y, partW, partH).intersected(QRect(p2.x, p2.y, partW, partH));
+    QRect intersection = QRect(p1.x, p1.y, p1.w, p1.h).intersected(QRect(p2.x, p2.y, p2.w, p2.h));
 
     if (!intersection.isValid()) {
         return 0;
     }
 
+    int invisible = 0;
+
     for (int x = intersection.x(); x < intersection.x() + intersection.width(); x++) {
         for (int y = intersection.y(); y < intersection.y() + intersection.height(); y++) {
+            if (!p1.mask[y-p1.y][x-p1.x] || !p2.mask[y-p2.y][x-p2.x]) {
+                invisible++;
+                continue;
+            }
             if (p1.data[y-p1.y][x-p1.x] != p2.data[y-p2.y][x-p2.x]) {
                 return -1;
             }
         }
     }
 
-    return intersection.width() * intersection.height();
+    return intersection.width() * intersection.height() - invisible;
+}
+
+
+int neuralimage0(const QList<ImagePart> & __parts, QList<ImagePart> &results) {
+    QMap<int, ImagePart> parts;
+    for (int i = 0; i < __parts.length(); i++) {
+        parts[i] = __parts[i];
+    }
+
+    //Sort items by correlation
+    QMultiMap<int, QPair<int, int>> byCorrel;
+    QMap<int, QMap<int, int>> cache;
+
+    for (int i = 0; i < __parts.length(); i++) {
+        for (int j = i+1; j < __parts.length(); j++) {
+            int x = correl(__parts[i], __parts[j]);
+
+            if (x >= 0) {
+                byCorrel.insertMulti(x, QPair<int,int>(i,j));
+            }
+            cache[i][j] = x;
+        }
+    }
+
+    while (byCorrel.count() > 0) {
+        auto lastElem = byCorrel.last();
+        auto p1 = lastElem.first;
+        auto p2 = lastElem.second;
+
+        if (!parts.contains(p1) || !parts.contains(p2)) {
+            byCorrel.remove(byCorrel.lastKey(), lastElem);
+            continue;
+        }
+
+        cout << parts.count() << endl;
+        cout << "merging " << p1 << " " << p2 << " - " << byCorrel.lastKey() << endl;
+
+        if (correl(parts[p1], parts[p2]) != byCorrel.lastKey()) {
+            cout << "difference: " << correl(parts[p1], parts[p2]) << ", " << byCorrel.lastKey() << endl;
+            byCorrel.remove(byCorrel.lastKey(), lastElem);
+            continue;
+        }
+
+        /* Merge them */
+        ImagePart b2 = parts[p2];
+        ImagePart b = parts[p1];
+
+        parts[p1] = b.united(b2);
+
+        //Update elements
+        parts.remove(p2);
+        cache.remove(p2);
+
+        for (int x : parts.keys()) {
+            if (x == p1) {
+                continue;
+            }
+
+            int p = p1;
+
+            cache[x].remove(p2);
+            int cval = correl(parts[x], parts[p1]);
+
+            if (x > p) {
+                std::swap(x, p);
+            }
+
+            if (cache[x][p] != cval) {
+                byCorrel.remove(cache[x][p], QPair<int,int>(x, p));
+
+                if (cval >= 0) {
+                    cout << "increase correl between " << x << ", " << p << ": " << cval << endl;
+                    byCorrel.insertMulti(cval, QPair<int, int>(x, p));
+                }
+            }
+            cache[x][p] = cval;
+        }
+    }
+
+//    for (int x : parts.keys()) {
+//        for (int y : parts.keys()) {
+//            if (y > x && correl(parts[x], parts[y]) >= 0) {
+//                cout << "Missed opportunity: " << x << " " << y << endl;
+//            }
+//        }
+//    }
+    results = parts.values();
+
+    return parts.count();
 }
 
 int neuralimage(const QList<ImagePart> & parts, QList<QSet<int>> &results)
@@ -157,7 +318,7 @@ int neuralimage(const QList<ImagePart> & parts, QList<QSet<int>> &results)
         QMultiMap<int, int> nodesByCorrel;
 
         for (int x : graph.keys()) {
-            if (x == node) {
+            if (x == node || done.contains(x)) {
                 continue;
             }
 
