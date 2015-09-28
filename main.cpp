@@ -69,9 +69,11 @@ struct ImagePart {
 
         for (int x = p.x; x < p.x + p.w; x++) {
             for (int y = p.y; y < p.y + p.h; y++) {
-                if (y >= this->y && y < this->y + this->h && x >= this->x && x < this->x + this->w) {
+                if (y >= this->y && y < this->y + this->h && x >= this->x && x < this->x + this->w
+                        && this->mask[y-this->y][x-this->x]) {
                     p.data[y-p.y][x-p.x] = this->data[y-this->y][x-this->x];
-                } else if (y >= other.y && y < other.y + other.h && x >= other.x && x < other.x + other.w) {
+                } else if (y >= other.y && y < other.y + other.h && x >= other.x && x < other.x + other.w
+                           && other.mask[y-other.y][x-other.x]) {
                     p.data[y-p.y][x-p.x] = other.data[y-other.y][x-other.x];
                 } else {
                     p.mask[y-p.y][x-p.x] = false;
@@ -91,7 +93,7 @@ void imageBenchmark()
     QList<QImage> images;
 
     int n = 9;
-    int s = 100;
+    int s = 200;
     int image_width(0), image_height(0);
 
     QList<ImagePart> parts;
@@ -183,6 +185,10 @@ int correl(const ImagePart &p1, const ImagePart &p2){
         return 0;
     }
 
+    if (p1.w  > partH || p2.w  > partH || p1.h > partH || p2.h > partH) {
+        //qDebug() << "big";
+    }
+
     int invisible = 0;
 
     for (int x = intersection.x(); x < intersection.x() + intersection.width(); x++) {
@@ -191,13 +197,18 @@ int correl(const ImagePart &p1, const ImagePart &p2){
                 invisible++;
                 continue;
             }
-            if (p1.data[y-p1.y][x-p1.x] != p2.data[y-p2.y][x-p2.x]) {
+            auto d1 = p1.data[y-p1.y][x-p1.x];
+            auto d2 = p2.data[y-p2.y][x-p2.x];
+
+            if (d1 != d2) {
                 return -1;
             }
         }
     }
 
-    return intersection.width() * intersection.height() - invisible;
+    auto res = intersection.width() * intersection.height() - invisible;
+
+    return res;
 }
 
 
@@ -269,8 +280,12 @@ int neuralimage0(const QList<ImagePart> & __parts, QList<ImagePart> &results) {
                 byCorrel.remove(cache[x][p], QPair<int,int>(x, p));
 
                 if (cval >= 0) {
-                    cout << "increase correl between " << x << ", " << p << ": " << cval << endl;
+                    cout << "increase correl between " << x << ", " << p << ": " << cval << " (old: "
+                         << cache[x][p] << ")" << endl;
                     byCorrel.insertMulti(cval, QPair<int, int>(x, p));
+                } else {
+                    cout << "destroyed correl between " << x << ", " << p << ": " << cval << " (old: "
+                         << cache[x][p] << ")" << endl;
                 }
             }
             cache[x][p] = cval;
