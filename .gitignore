@@ -1,0 +1,7 @@
+*.png
+*.o
+graph-coloring
+*.pro.user
+*.qrc
+Makefile
+images
