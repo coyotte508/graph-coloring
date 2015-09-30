@@ -11,23 +11,6 @@ bool happens(double p) {
     return norm(randg()) < p;
 }
 
-int correl(const QByteArray &b1, const QByteArray &b2) {
-    int c = 0;
-
-    for (int i = 0; i < b1.length(); i++) {
-        if (b1[i] == 0 || b2[i] == 0) {
-            continue;
-        }
-        if (b1[i] != b2[i]) {
-            return -1;
-        }
-        c++;
-    }
-
-    return c;
-}
-
-
 /* n messages of length l repeated s times each with erasure probability p */
 QVector<QByteArray> generateParts(int n, int l, int s, double p) {
     /* Generate noisy messages */

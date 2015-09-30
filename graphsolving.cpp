@@ -1,5 +1,23 @@
-#include "graphsolving.h"
 #include "functions.h"
+
+#include "graphsolving.h"
+
+
+int correl(const QByteArray &b1, const QByteArray &b2) {
+    int c = 0;
+
+    for (int i = 0; i < b1.length(); i++) {
+        if (b1[i] == 0 || b2[i] == 0) {
+            continue;
+        }
+        if (b1[i] != b2[i]) {
+            return -1;
+        }
+        c++;
+    }
+
+    return c;
+}
 
 int dsatur(const QMap<int, QSet<int>> & graph) {
     QMap<int, int> colors;
@@ -181,41 +199,63 @@ int neural(const QVector<QByteArray> & _parts) {
     return parts.count();
 }
 
+
+QMap<int, QSet<int>> generateGraph(const QVector<QByteArray> &parts) {
+    QMap<int, QSet<int>> graph;
+
+    for(int i = 0; i < parts.length(); i++) {
+        for (int j = i+1; j < parts.length(); j++) {
+            const auto &p1 = parts[i];
+            const auto &p2 = parts[j];
+
+            graph[i]; graph[j]; //Create default elements
+
+            if (correl(p1, p2) < 0) {
+                graph[i].insert(j);
+                graph[j].insert(i);
+            }
+        }
+    }
+
+    return graph;
+}
+
 int neural2(const QVector<QByteArray> & parts) {
-//    auto graph = generateGraph(parts);
+    auto graph = generateGraph(parts);
 
-//    QMultiMap<int, int> nodesByDegree;
+    QMultiMap<int, int> nodesByDegree;
 
-//    for (int x : graph.keys()) {
-//        nodesByDegree.insertMulti(graph[x].count(), x);
-//    }
+    for (int x : graph.keys()) {
+        nodesByDegree.insertMulti(graph[x].count(), x);
+    }
 
-//    for (int node : qReversed(nodesByDegree.values())) {
-//        if (!graph.contains(node)) {
-//            continue;
-//        }
+    QSet<int> done;
+    for (int node : qReversed(nodesByDegree.values())) {
+        if (!graph.contains(node)) {
+            continue;
+        }
 
-//        QMultiMap<int, int> nodesByCorrel;
+        done.insert(node);
+        QMultiMap<int, int> nodesByCorrel;
 
-//        for (int x : graph.keys()) {
-//            if (x == node) {
-//                continue;
-//            }
+        for (int x : graph.keys()) {
+            if (x == node) {
+                continue;
+            }
 
-//            nodesByCorrel.insertMulti(correl(parts[x], parts[node]), x);
-//        }
-//        nodesByCorrel.remove(-1);
+            nodesByCorrel.insertMulti(correl(parts[x], parts[node]), x);
+        }
+        nodesByCorrel.remove(-1);
 
-//        for (int x: qReversed(nodesByCorrel.values())) {
-//            if (!graph[node].contains(x)) {
-//                graph[node].unite(graph[x]);
-//                graph.remove(x);
-//            }
-//        }
-//    }
+        for (int x: qReversed(nodesByCorrel.values())) {
+            if (!graph[node].contains(x) && !done.contains(x)) {
+                graph[node].unite(graph[x]);
+                graph.remove(x);
+            }
+        }
+    }
 
-//    return graph.count();
-    return 0;
+    return graph.count();
 }
 
 int rlf(const QMap<int, QSet<int>> & _graph) {

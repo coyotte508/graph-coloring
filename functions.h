@@ -5,6 +5,7 @@
 #include <QVector>
 #include <QByteArray>
 #include <QMap>
+#include <QSet>
 
 std::default_random_engine &randg();
 
@@ -32,9 +33,6 @@ template<class T>
 int correl(T , T ) {
     return -1;
 }
-
-template
-int correl<>(const QByteArray &b1, const QByteArray &b2);
 
 template<class T>
 QMap<int, QSet<int>> generateGraph(const T &parts) {

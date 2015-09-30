@@ -21,8 +21,8 @@ int main(int argc, char *argv[])
 {
     (void) argc, (void) argv;
 
-    //regularBenchmark();
-    imageBenchmark();
+    regularBenchmark();
+    //imageBenchmark();
 
     return 0;
 }
@@ -158,6 +158,8 @@ void imageBenchmark()
 //    }
 
     qDebug() << "Starting benchmark" << endl;
+
+    cout << dsatur(generateGraph(parts)) << endl;
 
     QList<ImagePart> results;
     cout << neuralimage0(parts, results) << endl;
@@ -360,59 +362,60 @@ int neuralimage(const QList<ImagePart> & parts, QList<QSet<int>> &results)
     return graph.count();
 }
 
-//void regularBenchmark()
-//{
-//    long long int total= 0;
-//    int n = 64;
-//    int l = 16;
-//    int s = 20;
-//    int type = 'd';//argv[1][0];
-//    const char *prefix;
+void regularBenchmark()
+{
+    long long int total= 0;
+    int n = 64;
+    int l = 16;
+    int s = 20;
+    int type = 'c';//argv[1][0];
+    const char *prefix;
 
-//    for (double p = 0.4; p <= 0.8; p += 0.1) {
-//        total = 0;
-//        QFile out;
-//        switch (type) {
-//            case 'd':
-//                for (int x = 0; x < 1000; x++) {
-//                    cout << char(type) << x << "..." << endl;
-//                    auto parts = generateParts(n, l, s, p);
-//                    auto graph = generateGraph(parts);
-//                    total += dsatur(graph);
-//                }
-//                prefix = "dsatur";
-//                break;
-//            case 'c':
-//                for (int x = 0; x < 1000; x++) {
-//                    cout << char(type) << x << "..." << endl;
-//                    auto parts = generateParts(n, l, s, p);
-//                    total += neural2(parts);
-//                }
-//                prefix = "correl";
-//                break;
-//            case 'r':
-//                for (int x = 0; x < 1000; x++) {
-//                    cout << char(type) << x << "..." << endl;
-//                    auto parts = generateParts(n, l, s, p);
-//                    auto graph = generateGraph(parts);
-//                    total += rlf(graph);
-//                }
-//                prefix = "rlf";
-//                break;
-//            case 'l':
-//                for (int x = 0; x < 1000; x++) {
-//                    cout << char(type) << x << "..." << endl;
-//                    auto parts = generateParts(n, l, s, p);
-//                    auto graph = generateGraph(parts);
-//                    total += greedy(graph);
-//                }
-//                prefix = "greedy";
-//                break;
-//       }
-//       out.setFileName(prefix + QString("-") + QString::number(p) +
-//                        QString("r-") + QString::number(s) + ".txt");
-//       out.open(QFile::WriteOnly);
-//       out.write((QString::number(total) + " " +QString::number(double(total) / 1000) + "\n").toUtf8());
-//       out.close();
-//     }
-//}
+    for (double p = 0.4; p <= 0.8; p += 0.1) {
+        total = 0;
+        QFile out;
+        switch (type) {
+            case 'd':
+                for (int x = 0; x < 1000; x++) {
+                    cout << char(type) << x << "..." << endl;
+                    auto parts = generateParts(n, l, s, p);
+                    auto graph = generateGraph(parts);
+                    total += dsatur(graph);
+                }
+                prefix = "dsatur";
+                break;
+            case 'c':
+                for (int x = 0; x < 1000; x++) {
+                    if (x % 50 == 0 && x > 0) cout << char(type) << x << "..." << " " << double(total)/(x) << endl;
+                    auto parts = generateParts(n, l, s, p);
+                    total += neural2(parts);
+                }
+                prefix = "correl";
+                break;
+            case 'r':
+                for (int x = 0; x < 1000; x++) {
+                    cout << char(type) << x << "..." << endl;
+                    auto parts = generateParts(n, l, s, p);
+                    auto graph = generateGraph(parts);
+                    total += rlf(graph);
+                }
+                prefix = "rlf";
+                break;
+            case 'l':
+                for (int x = 0; x < 1000; x++) {
+                    cout << char(type) << x << "..." << endl;
+                    auto parts = generateParts(n, l, s, p);
+                    auto graph = generateGraph(parts);
+                    total += greedy(graph);
+                }
+                prefix = "greedy";
+                break;
+       }
+       out.setFileName(prefix + QString("-") + QString::number(p) +
+                        QString("r-") + QString::number(s) + ".txt");
+       out.open(QFile::WriteOnly);
+       qDebug() << (QString::number(total) + " " +QString::number(double(total) / 1000) + "\n");
+       out.write((QString::number(total) + " " +QString::number(double(total) / 1000) + "\n").toUtf8());
+       out.close();
+     }
+}
